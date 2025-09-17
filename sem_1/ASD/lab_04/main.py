@@ -22,4 +22,4 @@ with open("input.txt", "r", encoding="utf-8") as f:
 arr = comb_sort(arr)
 
 with open("output.txt", "w", encoding="utf-8") as f:
-        f.write(" ".join(map(str, arr)))
+    f.write(" ".join(map(str, arr)))
