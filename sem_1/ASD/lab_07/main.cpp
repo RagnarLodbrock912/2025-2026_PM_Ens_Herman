@@ -1,18 +1,32 @@
 #include <iostream>
 #include <vector>
+#include <cmath>
 #include <fstream>
 
 using namespace std;
 
-void swapSort(vector<int>& arr) {
-    for(int i = 0; i < arr.size(); i++) {
-        for(int j = i; j < arr.size(); j++) {
-            if(arr[i] > arr[j]) {
-                int s = arr[i];
-                arr[i] = arr[j];
-                arr[j] = s;
+void shellSort(vector<int>& arr) {
+    int d = round(arr.size() / 2);
+    while (d > 0) {
+        for (int i = 0; i < arr.size() - d; i++) {
+            if (arr[i] > arr[i + d]) {
+                    int s = arr[i];
+                    arr[i] = arr[i + d];
+                    arr[i + d] = s;   
+                }
+            int t = i;
+            while (t - d >= 0) {
+                if (arr[t - d] > arr[t]) {
+                    int s = arr[t];
+                    arr[t] = arr[t - d];
+                    arr[t - d] = s; 
+                    t -= d;
+                }
+                else
+                    break;
             }
         }
+        d = round(d / 2);   
     }
 }
 
@@ -33,7 +47,7 @@ int main ()
     for (int i = 0; i < n; i++)
         in >> mas[i];
 
-    swapSort(mas);
+    shellSort(mas);
 
     for (int i = 0; i < n; i++)
         out << mas[i] << " ";
