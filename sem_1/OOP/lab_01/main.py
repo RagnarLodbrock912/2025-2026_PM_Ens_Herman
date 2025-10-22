@@ -94,7 +94,7 @@ class Angle:
 
 
 class AngleRange:
-    def __init__(self, start: float, end: float, include_start: bool = True, include_end: bool = True) -> None:
+    def __init__(self, start: float | int, end: float | int, include_start: bool = True, include_end: bool = True) -> None:
         self.start = start
         self.end = end
         self.include_start = include_start
@@ -134,73 +134,109 @@ class AngleRange:
         start_bracket = "[" if self.include_start else "("
         end_bracket = "]" if self.include_end else ")"
         return f"AngleRange({start_bracket}{self.start}, {self.end}{end_bracket})"
-    
+
     def __contains__(self, other: Self | Angle) -> bool:
         if isinstance(other, AngleRange):
-            return self.__contains__(Angle(other.start)) and self.__contains__(Angle(other.end))
-        elif isinstance(other, Angle):
-            start = self.start % (2*pi)
-            end = self.end % (2*pi)
-            a = other.radian % (2*pi)
-            if start < end:
-                start_check = a > start if not self.include_start else a >= start
-                end_check = a < end if not self.include_end else a <= end
-                return start_check and end_check
+            if abs(other) > abs(self):
+                return False
+
+            s1, e1 = self.start, self.end
+            s2, e2 = other.start, other.end
+
+            def less_or_equal(a: float | int, b: float | int, include: bool) -> bool:
+                return a < b or (include and a == b)
+
+            def greater_or_equal(a: float | int, b: float | int, include: bool) -> bool:
+                return a > b or (include and a == b)
+
+            if s1 <= e1:
+                if s2 <= e2:
+                    start_ok = greater_or_equal(s2, s1, self.include_start and other.include_start)
+                    end_ok = less_or_equal(e2, e1, self.include_end and other.include_end)
+                    return start_ok and end_ok
+                else:
+                    a = e1 - s1
+                    b = s2 + e2
+                    if a == b and a % (2 * pi) == 0 and self.include_start and self.include_end and other.include_end and other.include_start:
+                        return True
+                    return False
             else:
-                start_check = a > start if not self.include_start else a >= start
-                end_check = a < end if not self.include_end else a <= end
-                return start_check or end_check
+                if s2 <= e2:
+                    in_start = greater_or_equal(s2, s1, self.include_start and other.include_start)
+                    in_end = less_or_equal(e2, e1, self.include_end and other.include_end)
+                    return in_start or in_end
+                else:
+                    in_start = greater_or_equal(s2, s1, self.include_start and other.include_start)
+                    in_end = less_or_equal(e2, e1, self.include_end and other.include_end)
+                    return in_start and in_end
+
+        elif isinstance(other, Angle):
+            return self.__contains__(AngleRange.from_angle(other))
+
         else:
-            raise NotImplemented
+            raise NotImplementedError
+
         
     def __add__(self, other: Self) -> list[Self]:
         s1, e1 = self.start % (2*pi), self.end % (2*pi)
         s2, e2 = other.start % (2*pi), other.end % (2*pi)
 
-        parts1 = [(s1, e1)] if s1 <= e1 else [(s1, 2*pi), (0, e1)]
-        parts2 = [(s2, e2)] if s2 <= e2 else [(s2, 2*pi), (0, e2)]
+        parts1 = [(s1, e1, self.include_start, self.include_end)] if s1 <= e1 else [
+            (s1, 2*pi, self.include_start, True),
+            (0, e1, True, self.include_end)
+        ]
+        parts2 = [(s2, e2, other.include_start, other.include_end)] if s2 <= e2 else [
+            (s2, 2*pi, other.include_start, True),
+            (0, e2, True, other.include_end)
+        ]
 
         merged = parts1 + parts2
         merged.sort(key=lambda x: x[0])
 
         result = []
-        cur_start, cur_end = merged[0]
+        cur_start, cur_end, cur_start_inc, cur_end_inc = merged[0]
 
-        for s, e in merged[1:]:
-            if s <= cur_end:
-                cur_end = max(cur_end, e)
+        for s, e, s_inc, e_inc in merged[1:]:
+            if s < cur_end or (s == cur_end and (cur_end_inc or s_inc)):
+                if e > cur_end or (e == cur_end and e_inc):
+                    cur_end = e
+                    cur_end_inc = e_inc
             else:
-                result.append(AngleRange(cur_start, cur_end))
-                cur_start, cur_end = s, e
+                result.append(AngleRange(cur_start, cur_end, cur_start_inc, cur_end_inc))
+                cur_start, cur_end, cur_start_inc, cur_end_inc = s, e, s_inc, e_inc
 
-        result.append(AngleRange(cur_start, cur_end))
-
+        result.append(AngleRange(cur_start, cur_end, cur_start_inc, cur_end_inc))
         return result
     
     def __sub__(self, other: Self) -> list[Self]:
         s1, e1 = self.start % (2*pi), self.end % (2*pi)
         s2, e2 = other.start % (2*pi), other.end % (2*pi)
 
-        parts1 = [(s1, e1)] if s1 <= e1 else [(s1, 2*pi), (0, e1)]
-        parts2 = [(s2, e2)] if s2 <= e2 else [(s2, 2*pi), (0, e2)]
+        parts1 = [(s1, e1, self.include_start, self.include_end)] if s1 <= e1 else [
+            (s1, 2*pi, self.include_start, True),
+            (0, e1, True, self.include_end)
+        ]
+        parts2 = [(s2, e2, other.include_start, other.include_end)] if s2 <= e2 else [
+            (s2, 2*pi, other.include_start, True),
+            (0, e2, True, other.include_end)
+        ]
 
         result = []
 
-        for s1, e1 in parts1:
-            temp = [(s1, e1)]
-            for s2, e2 in parts2:
+        for s1, e1, s1_inc, e1_inc in parts1:
+            temp = [(s1, e1, s1_inc, e1_inc)]
+            for s2, e2, s2_inc, e2_inc in parts2:
                 new_temp = []
-                for ts, te in temp:
-
-                    if te <= s2 or ts >= e2:
-                        new_temp.append((ts, te))
+                for ts, te, ts_inc, te_inc in temp:
+                    if te < s2 or (te == s2 and not (te_inc and s2_inc)) or ts > e2 or (ts == e2 and not (ts_inc and e2_inc)):
+                        new_temp.append((ts, te, ts_inc, te_inc))
                     else:
-                        if ts < s2:
-                            new_temp.append((ts, s2))
-                        if te > e2:
-                            new_temp.append((e2, te))
+                        if ts < s2 or (ts == s2 and ts_inc and not s2_inc):
+                            new_temp.append((ts, s2, ts_inc, not s2_inc))
+                        if te > e2 or (te == e2 and te_inc and not e2_inc):
+                            new_temp.append((e2, te, not e2_inc, te_inc))
                 temp = new_temp
-            result.extend([AngleRange(ts, te) for ts, te in temp])
+            result.extend([AngleRange(ts, te, tsi, tei) for ts, te, tsi, tei in temp])
 
         return result
         
@@ -247,43 +283,69 @@ print(a / 2, "→ π/4")
 
 
 print("\n---- Создание диапазонов ----")
-r1 = AngleRange(0, pi/2)             # [0, π/2]
-r2 = AngleRange(pi/4, 3*pi/4)        # [π/4, 3π/4]
-r3 = AngleRange(3*pi/2, pi/2)        # [3π/2, π/2] — через 0
-r4 = AngleRange(0, 2*pi)             # полный круг
+r1 = AngleRange(0, pi/2)
+r2 = AngleRange(pi/2, pi)
+r3 = AngleRange(3*pi/2, pi/2)
+r4 = AngleRange(0, pi*2)
+print(r1)
+print(r2)
+print(r3)
 
-print("\n---- Длина диапазонов ----")
-print(abs(r1), "→ π/2")
-print(abs(r3), "→ π")
+print("\n---- Получение длины диапазона ----")
+print(abs(r1), "→ должно быть π/2")
+print(abs(r3), "→ должно быть π (от 3π/2 до π/2 через 2π)")
 
-print("\n---- Проверка включения углов ----")
-a1 = Angle(0)
-a2 = Angle(pi/4)
-a3 = Angle(pi)
-a4 = Angle(2*pi)
-a5 = Angle(7*pi/4)
-print(a1 in r1, "→ True")
-print(a2 in r1, "→ True")
-print(a3 in r1, "→ False")
-print(a4 in r1, "→ True")
-print(a5 in r3, "→ True")
-print(Angle(-pi/4) in r3, "→ True")
-print(Angle(3*pi/2) in r1, "→ False")
+print("\n---- Проверка вхождения углов ----")
+a = Angle(pi/4)
+b = Angle(3*pi/2)
+print(a in r1, "→ True (π/4 ∈ [0, π/2])")
+print(b in r4, "→ True (3π/2 ∈ [0, 2π])")
+print(b in r3, "→ False (3π/2 ∉ [3π/2, π/2)")
 
-print("\n---- Проверка вложенности диапазонов ----")
-print(r2 in r1, "→ False")
-print(r1 in r4, "→ True")
-print(r3 in r4, "→ True")
-print(r3 in r1, "→ False")
+print("\n---- Проверка вхождения диапазонов ----")
+r4 = AngleRange(0, pi)
+r5 = AngleRange(pi/4, pi/2)
+r6 = AngleRange(pi/2, 3*pi/2)
+print(r5 in r4, "→ True ([π/4, π/2] внутри [0, π])")
+print(r6 in r4, "→ False ([π/2, 3π/2] частично выходит за границы)")
+print(r3 in r4, "→ False (wrap-around не внутри обычного диапазона)")
+print(r4 in r3, "→ False (обычный диапазон не входит в wrap-around, длина меньше)")
+
+print("\n---- Проверка включающих и исключающих границ ----")
+r7 = AngleRange(0, pi, include_start=False, include_end=False)
+print(Angle(0) in r7, "→ False (начало исключено)")
+print(Angle(pi) in r7, "→ False (конец исключён)")
+print(AngleRange(pi/4, pi/2) in r7, "→ True (середина включена)")
 
 print("\n---- Сравнение диапазонов ----")
-print(r1 < r2, "→ False")    # π/2 < π/2? (по длине) False
-print(r1 <= r2, "→ True")   # равно по длине?
-print(r3 > r1, "→ True")    # π > π/2
-print(r4 >= r3, "→ True")   # 2π >= π
+r8 = AngleRange(0, pi)
+r9 = AngleRange(pi, 2*pi)
+r10 = AngleRange(0, 2*pi)
+print(r8 < r9, "→ True (оба длиной π, но 0<π)")
+print(r8 == r9, "→ False (разные границы)")
+print(r10 > r8, "→ True (2π > π)")
 
-print("\n---- Пограничные случаи ----")
-r5 = AngleRange(0, 0)           # нулевой промежуток
-print(Angle(0) in r5, "→ True")  # угол на границе
-r6 = AngleRange(pi, pi, include_start=False, include_end=False)
-print(Angle(pi) in r6, "→ False") # исключаемые границы
+print("\n---- Сумма диапазонов ----")
+r11 = AngleRange(0, pi/2)
+r12 = AngleRange(pi/4, pi)
+sum_result = r11 + r12
+print(sum_result)
+print("→ должно получиться один объединённый диапазон [0, π]")
+
+r13 = AngleRange(3*pi/2, 2*pi)
+r14 = AngleRange(0, pi/4)
+sum_wrap = r13 + r14
+print(sum_wrap)
+
+print("\n---- Разность диапазонов ----")
+r15 = AngleRange(0, pi)
+r16 = AngleRange(pi/4, 3*pi/4)
+diff_result = r15 - r16
+print(diff_result)
+print("→ должно остаться два диапазона: [0, π/4] и [3π/4, π]")
+
+r17 = AngleRange(3*pi/2, pi/2)
+r18 = AngleRange(0, pi/4)
+diff_wrap = r17 - r18
+print(diff_wrap)
+print("→ диапазон wrap-around минус маленький — должен остаться разорванный участок")
