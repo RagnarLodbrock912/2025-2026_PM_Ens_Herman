@@ -325,27 +325,69 @@ print(r8 < r9, "→ True (оба длиной π, но 0<π)")
 print(r8 == r9, "→ False (разные границы)")
 print(r10 > r8, "→ True (2π > π)")
 
-print("\n---- Сумма диапазонов ----")
-r11 = AngleRange(0, pi/2)
-r12 = AngleRange(pi/4, pi)
-sum_result = r11 + r12
-print(sum_result)
-print("→ должно получиться один объединённый диапазон [0, π]")
 
-r13 = AngleRange(3*pi/2, 2*pi)
-r14 = AngleRange(0, pi/4)
-sum_wrap = r13 + r14
-print(sum_wrap)
+print("===== ТЕСТЫ СЛОЖЕНИЯ И ВЫЧИТАНИЯ ДИАПАЗОНОВ =====")
 
-print("\n---- Разность диапазонов ----")
-r15 = AngleRange(0, pi)
-r16 = AngleRange(pi/4, 3*pi/4)
-diff_result = r15 - r16
-print(diff_result)
-print("→ должно остаться два диапазона: [0, π/4] и [3π/4, π]")
+def format_range(angle_range):
+    """Форматирует диапазон в красивый вид (start, end)"""
+    start = angle_range.start
+    end = angle_range.end
+    start_inc = "[" if angle_range.include_start else "("
+    end_inc = "]" if angle_range.include_end else ")"
+    return f"{start_inc}{start:.1f}, {end:.1f}{end_inc}"
 
-r17 = AngleRange(3*pi/2, pi/2)
-r18 = AngleRange(0, pi/4)
-diff_wrap = r17 - r18
-print(diff_wrap)
-print("→ диапазон wrap-around минус маленький — должен остаться разорванный участок")
+def format_degrees(angle_range):
+    """Форматирует диапазон в градусах"""
+    start_deg = angle_range.start * 180 / pi
+    end_deg = angle_range.end * 180 / pi
+    start_inc = "[" if angle_range.include_start else "("
+    end_inc = "]" if angle_range.include_end else ")"
+    return f"{start_inc}{start_deg:.0f}°, {end_deg:.0f}°{end_inc}"
+
+print("\n--- Тест 1: Простое сложение ---")
+r1 = AngleRange(120 * pi/180, 200 * pi/180)
+r2 = AngleRange(150 * pi/180, 240 * pi/180)
+result = r1 + r2
+print(f"{format_degrees(r1)} + {format_degrees(r2)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 2: Вычитание из середины ---")
+r5 = AngleRange(0, pi)                      # [0°, 180°]
+r6 = AngleRange(pi/4, 3*pi/4)              # [45°, 135°]
+result = r5 - r6
+print(f"{format_degrees(r5)} - {format_degrees(r6)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 3: Вычитание wrap-around диапазона ---")
+r7 = AngleRange(270 * pi/180, 90 * pi/180)  # [270°, 90°]
+r8 = AngleRange(300 * pi/180, 30 * pi/180)  # [300°, 30°]
+result = r7 - r8
+print(f"{format_degrees(r7)} - {format_degrees(r8)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 4: Сложное вычитание с границами ---")
+r9 = AngleRange(pi/6, 5*pi/6)              # [30°, 150°]
+r10 = AngleRange(pi/3, 2*pi/3)             # [60°, 120°]
+result = r9 - r10
+print(f"{format_degrees(r9)} - {format_degrees(r10)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 5: Сложение непересекающихся диапазонов ---")
+r11 = AngleRange(0, pi/4)                   # [0°, 45°]
+r12 = AngleRange(pi/2, 3*pi/4)             # [90°, 135°]
+result = r11 + r12
+print(f"{format_degrees(r11)} + {format_degrees(r12)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 6: Вычитание всего диапазона ---")
+r13 = AngleRange(pi/4, 3*pi/4)             # [45°, 135°]
+r14 = AngleRange(pi/4, 3*pi/4)             # [45°, 135°]
+result = r13 - r14
+print(f"{format_degrees(r13)} - {format_degrees(r14)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 7: Сложение с исключающими границами ---")
+r15 = AngleRange(0, pi/2, include_end=False)    # [0°, 90°)
+r16 = AngleRange(pi/2, pi, include_start=False) # (90°, 180°]
+result = r15 + r16
+print(f"{format_degrees(r15)} + {format_degrees(r16)} = {[format_degrees(r) for r in result]}")
+
+print("\n--- Тест 8: Вычитание с граничными условиями ---")
+r17 = AngleRange(0, pi)                    # [0°, 180°]
+r18 = AngleRange(pi/2, pi/2)              # [90°, 90°] (точка)
+result = r17 - r18
+print(f"{format_degrees(r17)} - {format_degrees(r18)} = {[format_degrees(r) for r in result]}")

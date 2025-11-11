@@ -31,8 +31,11 @@ class ReLogFilter(ILogFilter):
         self.pattern = pattern
 
     def match(self, log_level: LogLevel, text: str) -> bool:
-        return re.fullmatch(self.pattern, text)
-    
+        try:
+            return re.fullmatch(self.pattern, text)
+        except Exception as e:
+            pass
+
 class LevelFilter(ILogFilter):
     def __init__(self, log_level: LogLevel) -> None:
         self.log_level = log_level
@@ -50,9 +53,12 @@ class FileHandler(ILogHandler):
     def __init__(self, log_level: LogLevel, file_path: str) -> None:
         self.file_path = file_path
 
-    def handle(self, text: str):
-        with open(self.file_path, "a", encoding="utf-8") as file:
-            file.write(f"{text}\n")
+    def handle(self, log_level: LogLevel, text: str):
+        try:
+            with open(self.file_path, "a", encoding="utf-8") as file:
+                file.write(f"{text}\n")
+        except Exception as e:
+            pass
 
 class SocketHandler(ILogHandler):
     def __init__(self, host: str, port: int) -> None:
@@ -60,9 +66,12 @@ class SocketHandler(ILogHandler):
         self.port = port
 
     def handle(self, log_level: LogLevel, text: str):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-            client.connect((self.host, self.port))
-            client.sendall(text.encode('utf-8'))
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+                client.connect((self.host, self.port))
+                client.sendall(text.encode('utf-8'))
+        except Exception as e:
+            pass
 
 class ConsoleHandler(ILogHandler):
     def handle(self, log_level: LogLevel, text: str):
@@ -76,8 +85,11 @@ class SyslogHandler(ILogHandler):
             self.log_file = os.path.join(log_dir, f"{app_name}.log")
 
     def handle(self, log_level: LogLevel, text: str) -> None:
-        with open(self.log_file, "a", encoding="utf-8") as file:
-            file.write(text)
+        try:
+            with open(self.log_file, "a", encoding="utf-8") as file:
+                file.write(text)
+        except Exception as e:
+            pass
 
 class FtpHandler(ILogHandler):
     def __init__(self, host: str, username: str, password: str) -> None:
@@ -86,20 +98,23 @@ class FtpHandler(ILogHandler):
         self.password = password
 
     def handle(self, log_level: LogLevel, text: str):
-        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as tmp:
-            tmp.write(text)
-            tmp.flush()
-            tmp_name = tmp.name
+        try:
+            with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as tmp:
+                tmp.write(text)
+                tmp.flush()
+                tmp_name = tmp.name
 
-        ftp = FTP(self.host)
-        ftp.login(self.username, self.password)
-        ftp.cwd("/logs")
+            ftp = FTP(self.host)
+            ftp.login(self.username, self.password)
+            ftp.cwd("/logs")
 
-        with open(tmp_name, "rb") as f:
-            ftp.storbinary(f"STOR log_{os.path.basename(tmp_name)}.txt", f)
+            with open(tmp_name, "rb") as f:
+                ftp.storbinary(f"STOR log_{os.path.basename(tmp_name)}.txt", f)
 
-        ftp.quit()
-        os.remove(tmp_name)
+            ftp.quit()
+            os.remove(tmp_name)
+        except Exception as e:
+            pass
 
 # LOG FORMATTER
 
@@ -130,7 +145,7 @@ class Logger():
             text = formatter.format(log_level, text)
 
         for handler in self.log_handlers:
-            handler.handle(text)
+            handler.handle(log_level=log_level, text=text)
 
     def log_info(self, text: str) -> None:
         self.log(LogLevel.INFO, text)
@@ -170,7 +185,7 @@ filters = [
 # Хэндлеры
 handlers = [
     ConsoleHandler(),
-    FileHandler("log_demo_extended.txt")
+    FileHandler(LogLevel.INFO, "log_demo_extended.txt")
 ]
 
 # Форматтер
