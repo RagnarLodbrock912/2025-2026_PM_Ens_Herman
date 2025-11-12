@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 import string
-from typing import Optional, Callable
+from typing import Any, Callable
 from pathlib import Path
 import json
+from dataclasses import asdict, dataclass, field
 
 class Command(ABC):
     @abstractmethod
@@ -106,29 +107,46 @@ class MediaPlayerCommand(Command):
     def cancel(self) -> None:
         self.undo_action()
 
+@dataclass
+class CommandData:
+    type: str
+    args: dict[str, Any]
+
+@dataclass
+class KeyboardData:
+    printed_sq: Any
+    undo_stack: list
+    redo_stack: list
+    commands: dict[str, CommandData] = field(default_factory=dict)
+
 class KeybordStateSaver:
-    def __init__(self, keyboard: Keyboard, file_path: str) -> None:
+    def __init__(self, keyboard: 'Keyboard', file_path: str, 
+                 serializer: Callable[[object], dict] | None = None) -> None:
         self.keyboard = keyboard
         self.file_path = Path(file_path)
+        self.serializer = serializer or self.default_serializer
+
+    def default_serializer(self, obj: object) -> dict:
+        return {k: v for k, v in obj.__dict__.items() if k not in ("keyboard", "action", "undo_action")}
 
     def save(self) -> None:
-        commands_data = {}
-        for key, cmd in self.keyboard.commands.items():
-            data = {k: v for k, v in cmd.__dict__.items() if k not in ("keyboard", "action", "undo_action")}
-            commands_data[key] = {
-                "type": cmd.__class__.__name__,
-                "args": data
-            }
-
-        full_data = {
-            "printed_sq": self.keyboard.printed_sq,
-            "undo_stack": self.keyboard.undo_stack,
-            "redo_stack": self.keyboard.redo_stack,
-            "commands": commands_data
+        commands_data = {
+            key: CommandData(
+                type=cmd.__class__.__name__,
+                args=self.serializer(cmd)
+            )
+            for key, cmd in self.keyboard.commands.items()
         }
 
+        full_data = KeyboardData(
+            printed_sq=self.keyboard.printed_sq,
+            undo_stack=self.keyboard.undo_stack,
+            redo_stack=self.keyboard.redo_stack,
+            commands=commands_data
+        )
+
         with open(self.file_path, "w", encoding="utf-8") as f:
-            json.dump(full_data, f, indent=4, ensure_ascii=False)
+            json.dump(asdict(full_data), f, indent=4, ensure_ascii=False)
 
     def load(self) -> None:
         if not self.file_path.exists():
