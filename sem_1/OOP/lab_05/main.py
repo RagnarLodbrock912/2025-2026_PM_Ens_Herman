@@ -101,6 +101,8 @@ class FileDataRepository(Generic[T]):
 
     def add(self, item: User) -> None:
         users = self.get_all()
+        if self.get_by_id(item.id) is not None:
+            return
         users.append(item)
         self._save_all(users)
 
@@ -133,21 +135,35 @@ class FileUserRepository(FileDataRepository[User]):
 
         return None
 
-class FileAuthService(IAuthService):
+@dataclass
+class CurrentUser:
+    id: int
+
+class FileSaveCurrentUser(FileDataRepository[CurrentUser]):
     def __init__(self, file_path: str) -> None:
-        self.sgn = FileUserRepository(file_path)
+        super().__init__(file_path, CurrentUser)
+
+
+class FileAuthService(IAuthService):
+    def __init__(self, auth_path: str, repo_path: str) -> None:
+        self.sgn = FileSaveCurrentUser(auth_path)
+        self.repo = FileUserRepository(repo_path)
 
     def sign_in(self, user: User) -> None:
         if self.is_authorized():
             print("Sign out before sign in")
             return
-        self.sgn.add(user)
+        if self.repo.get_by_id(user.id) is None:
+            print("No such user")
+            return
+        
+        self.sgn.add(CurrentUser(user.id))
 
     def sign_out(self, user: User) -> None:
-        if user not in self.sgn.get_all():
+        if CurrentUser(user.id) not in self.sgn.get_all():
             print("Sign in before sign out")
             return
-        self.sgn.delete(user)
+        self.sgn.delete(CurrentUser(user.id))
 
     def is_authorized(self) -> bool:
         sgn_users = self.sgn.get_all()
@@ -158,18 +174,19 @@ class FileAuthService(IAuthService):
         if not self.is_authorized():
             return None
         
-        return self.sgn.get_all()[-1]
+        return self.repo.get_by_id(self.sgn.get_all()[-1].id)
     
 
 def run_tests():
-    file_path = "users.json"
+    repo_path = "users.json"
+    auth_path = "user.json"
 
     # создаем репозиторий и сервис авторизации
-    auth_service = FileAuthService(file_path)
-    repo = auth_service.sgn
+    auth_service = FileAuthService(auth_path, repo_path)
+    repo = FileUserRepository(repo_path)
 
-    # очистим файл для тестов
-    repo._save_all([])
+    # # очистим файл для тестов
+    # repo._save_all([])
 
     # 1. Добавление пользователей
     user1 = User(id=1, name="Alice", login="alice123", password="pass1", email="alice@mail.com")
@@ -185,9 +202,6 @@ def run_tests():
     print("\nПосле редактирования Alice:")
     print(repo.get_by_id(1))
 
-    # очистим файл для тестов
-    repo._save_all([])
-
     # 3. Авторизация пользователя
     auth_service.sign_in(user1)
     print("\nАвторизован ли кто-то?", auth_service.is_authorized())
@@ -201,7 +215,7 @@ def run_tests():
     print(auth_service.current_user())
 
     # 5. Автоавторизация (имитация перезапуска)
-    auth_service2 = FileAuthService(file_path)
+    auth_service2 = FileAuthService(auth_path=auth_path, repo_path=repo_path)
     print("\nПосле перезапуска программы (автоавторизация):")
     print(auth_service2.current_user())
 
