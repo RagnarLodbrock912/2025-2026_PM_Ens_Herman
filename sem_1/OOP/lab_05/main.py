@@ -138,9 +138,15 @@ class FileAuthService(IAuthService):
         self.sgn = FileUserRepository(file_path)
 
     def sign_in(self, user: User) -> None:
+        if self.is_authorized():
+            print("Sign out before sign in")
+            return
         self.sgn.add(user)
 
     def sign_out(self, user: User) -> None:
+        if user not in self.sgn.get_all():
+            print("Sign in before sign out")
+            return
         self.sgn.delete(user)
 
     def is_authorized(self) -> bool:
@@ -188,6 +194,7 @@ def run_tests():
     print("Текущий пользователь:")
     print(auth_service.current_user())
 
+    auth_service.sign_out(user1)
     # 4. Смена пользователя
     auth_service.sign_in(user2)
     print("\nПосле авторизации Bob:")
