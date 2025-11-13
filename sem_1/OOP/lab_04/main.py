@@ -86,7 +86,7 @@ class Frog(PropertyNotifierMixin):
     def __init__(self, name: str, color: str, weight: int) -> None:
         super().__init__()
         self.name = name
-        self.address = color
+        self.color = color
         self.weight = weight
 
 
