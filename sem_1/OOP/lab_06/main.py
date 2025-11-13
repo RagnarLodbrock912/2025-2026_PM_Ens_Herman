@@ -16,7 +16,7 @@ class Command(ABC):
 
 class Keyboard:
     def __init__(self, file_to_safe: str) -> None:
-        self.state_server = KeybordStateSaver(self, file_to_safe)
+        self.state_server = KeybordStateSaver(self, file_to_safe, KeyboardSerializer())
         self.undo_stack = []
         self.redo_stack = []
         self.printed_sq = ""
@@ -119,21 +119,27 @@ class KeyboardData:
     redo_stack: list
     commands: dict[str, CommandData] = field(default_factory=dict)
 
+class Serializer(ABC):
+    @abstractmethod
+    def serialize(self, obj: object) -> dict:
+        ...
+
+class KeyboardSerializer(Serializer):
+    def serialize(self, obj: object) -> dict:
+        return {k: v for k, v in obj.__dict__.items() if k not in ("keyboard", "action", "undo_action")}
+
 class KeybordStateSaver:
     def __init__(self, keyboard: 'Keyboard', file_path: str, 
-                 serializer: Callable[[object], dict] | None = None) -> None:
+                 serializer: Serializer) -> None:
         self.keyboard = keyboard
         self.file_path = Path(file_path)
-        self.serializer = serializer or self.default_serializer
-
-    def default_serializer(self, obj: object) -> dict:
-        return {k: v for k, v in obj.__dict__.items() if k not in ("keyboard", "action", "undo_action")}
+        self.serializer = serializer
 
     def save(self) -> None:
         commands_data = {
             key: CommandData(
                 type=cmd.__class__.__name__,
-                args=self.serializer(cmd)
+                args=self.serializer.serialize(cmd)
             )
             for key, cmd in self.keyboard.commands.items()
         }
