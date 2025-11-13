@@ -14,6 +14,9 @@ class Command(ABC):
     def cancel(self) -> None:
         ...
 
+    def is_printed(self) -> bool:
+        return False
+
 class Keyboard:
     def __init__(self, file_to_safe: str) -> None:
         self.state_server = KeybordStateSaver(self, file_to_safe, KeyboardSerializer())
@@ -30,7 +33,11 @@ class Keyboard:
             print(f"Command '{command_key}' not found")
             return
         cmd = self.commands[command_key]
-        cmd.execute()
+        if cmd.is_printed():
+            self.printed_sq += cmd.my_key()
+            cmd.execute(self.printed_sq)
+        else:
+            cmd.execute()
         self.undo_stack.append(command_key)
         self.redo_stack.clear()
 
@@ -40,7 +47,11 @@ class Keyboard:
             return
         command_key = self.undo_stack.pop()
         cmd = self.commands[command_key]
-        cmd.cancel()
+        if cmd.is_printed():
+            self.printed_sq = self.printed_sq[:-1]
+            cmd.cancel(self.printed_sq)
+        else:
+            cmd.cancel()
         self.redo_stack.append(command_key)
 
     def redo(self) -> None:
@@ -49,7 +60,11 @@ class Keyboard:
             return
         command_key = self.redo_stack.pop()
         cmd = self.commands[command_key]
-        cmd.execute()
+        if cmd.is_printed():
+            self.printed_sq += cmd.my_key()
+            cmd.execute(self.printed_sq)
+        else:
+            cmd.execute()
         self.undo_stack.append(command_key)
 
     def serialize(self) -> None:
@@ -60,52 +75,44 @@ class Keyboard:
 
 
 class KeyCommand(Command):
-    def __init__(self, key: str, action: Callable[[str], None], undo_action: Callable[[], None]) -> None:
+    def __init__(self, key: str) -> None:
         self.key = key
-        self.action = action
-        self.undo_action = undo_action
 
-    def execute(self) -> None:
-        self.action(self.key)
+    def my_key(self):
+        return self.key
+    
+    def execute(self, sq: str) -> None:
+        print(sq)
 
-    def cancel(self) -> None:
-        self.undo_action()
+    def cancel(self, sq: str) -> None:
+        print(sq)
+
+    def is_printed(self) -> bool:
+        return True
 
 
 class VolumeUpCommand(Command):
-    def __init__(self, action: Callable[[], None], undo_action: Callable[[], None]) -> None:
-        self.action = action
-        self.undo_action = undo_action
-
     def execute(self) -> None:
-        self.action()
+        print("volume increased +20%")
 
     def cancel(self) -> None:
-        self.undo_action()
+        print("volume decreased -20%")
 
 
 class VolumeDownCommand(Command):
-    def __init__(self, action: Callable[[], None], undo_action: Callable[[], None]) -> None:
-        self.action = action
-        self.undo_action = undo_action
-
     def execute(self) -> None:
-        self.action()
+        print("volume decreased -20%")
 
     def cancel(self) -> None:
-        self.undo_action()
+        print("volume increased +20%")
 
 
 class MediaPlayerCommand(Command):
-    def __init__(self, action: Callable[[], None], undo_action: Callable[[], None]) -> None:
-        self.action = action
-        self.undo_action = undo_action
-
     def execute(self) -> None:
-        self.action()
+        print("media player launched")
 
     def cancel(self) -> None:
-        self.undo_action()
+        print("media player closed")
 
 @dataclass
 class CommandData:
@@ -173,26 +180,13 @@ class KeybordStateSaver:
             args = info["args"]
 
             if cmd_type == "KeyCommand":
-                restored[key] = KeyCommand(
-                    args["key"],
-                    action=lambda k=args["key"], kb=self.keyboard: setattr(kb, "printed_sq", kb.printed_sq + k) or print(kb.printed_sq),
-                    undo_action=lambda kb=self.keyboard: setattr(kb, "printed_sq", kb.printed_sq[:-1]) or print(kb.printed_sq)
-                )
+                restored[key] = KeyCommand(args["key"],)
             elif cmd_type == "VolumeUpCommand":
-                restored[key] = VolumeUpCommand(
-                    action=lambda: print("volume increased +20%"),
-                    undo_action=lambda: print("volume decreased -20%")
-                )
+                restored[key] = VolumeUpCommand()
             elif cmd_type == "VolumeDownCommand":
-                restored[key] = VolumeDownCommand(
-                    action=lambda: print("volume decreased +20%"),
-                    undo_action=lambda: print("volume increased -20%")
-                )
+                restored[key] = VolumeDownCommand()
             elif cmd_type == "MediaPlayerCommand":
-                restored[key] = MediaPlayerCommand(
-                    action=lambda: print("media player launched"),
-                    undo_action=lambda: print("media player closed")
-                )
+                restored[key] = MediaPlayerCommand()
 
         self.keyboard.init_commands(restored)
 
@@ -204,27 +198,15 @@ k = Keyboard(TEST_FILE)
 
 commands = {
     letter: KeyCommand(
-        letter,
-        action=lambda key=letter, k=k: setattr(k, 'printed_sq', k.printed_sq + key) or print(k.printed_sq),
-        undo_action=lambda k=k: setattr(k, 'printed_sq', k.printed_sq[:-1]) or print(k.printed_sq)
-    )
+        letter)
     for letter in "abcd"
 }
 
-commands["ctrl++"] = VolumeUpCommand(
-    action=lambda: print("volume increased +20%"),
-    undo_action=lambda: print("volume decreased -20%")
-)
+commands["ctrl++"] = VolumeUpCommand()
 
-commands["ctrl+-"] = VolumeDownCommand(
-    action=lambda: print("volume decreased +20%"),
-    undo_action=lambda: print("volume increased -20%")
-)
+commands["ctrl+-"] = VolumeDownCommand()
 
-commands["ctrl+p"] = MediaPlayerCommand(
-    action=lambda: print("media player launched"),
-    undo_action=lambda: print("media player closed")
-)
+commands["ctrl+p"] = MediaPlayerCommand()
 
 k.init_commands(commands)
 
@@ -261,3 +243,9 @@ new_k.deserialize()
 # Проверка восстановления строки
 print(f"Restored printed_sq: {new_k.printed_sq}")  # должно быть 'ab'
 print(f"Restored undo_stack: {new_k.undo_stack}")  # должно содержать историю команд
+
+
+
+# action=lambda k=args["key"], kb=self.keyboard: setattr(kb, "printed_sq", kb.printed_sq + k) or print(kb.printed_sq),
+# undo_action=lambda kb=self.keyboard: setattr(kb, "printed_sq", kb.printed_sq[:-1]) or print(kb.printed_sq)
+                
