@@ -59,7 +59,7 @@ class Injector:
             elif param.annotation in self.registered_interfaces:
                 constructor_args[name] = self.get_instance(param.annotation)
             else:
-                raise Exception("DI can't resolve parameter")
+                raise Exception(f"{param.annotation} is not registered")
 
 
         if lifestyle == LifeStyle.PerRequest:
