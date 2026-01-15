@@ -21,6 +21,10 @@ def jarvis_alg(dots):
         print("No")
         return
     
+    if len(dots) == 3 and orientation(dots[0], dots[1], dots[2]):
+        print("No")
+        return
+    
     l = min(range(n), key=lambda i: (dots[i][0], dots[i][1]))
     hull = []
     p = l
