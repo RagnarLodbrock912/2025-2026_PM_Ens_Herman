@@ -8,7 +8,7 @@ def eggs(n=100, e=2):
         dp[1][j] = j
     for i in range(2, e + 1):
         for j in range(2, n + 1):
-            dp[i][j] = dp[i-1][j-1] + dp[i][j-1] + 1
+            dp[i][j] = dp[i - 1][j - 1] + dp[i][j - 1] + 1
 
     for i, el in enumerate(dp[e]):
         if el >= n:
