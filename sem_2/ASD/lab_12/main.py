@@ -1,5 +1,5 @@
 c = [1, 2, 5]
-v = [4, 5, 6]
+v = [4, 2, 6]
 
 def bp(c, v, w_m):
     dp = [[0] * (w_m + 1) for _ in range(len(c))]

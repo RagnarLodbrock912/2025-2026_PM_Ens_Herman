@@ -2,6 +2,8 @@ def rk(text, pattern):
     k = 0
     flag = False
 
+    h = text[0:0 + len(pattern)]
+
     while k < len(text) - len(pattern) + 1 and not flag:
         a = text[k:k + len(pattern)]
         if hash(pattern) != hash(text[k:k + len(pattern)]):

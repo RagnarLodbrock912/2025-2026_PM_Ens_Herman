@@ -21,7 +21,7 @@ def jarvis_alg(dots):
         print("No")
         return
     
-    if len(dots) == 3 and orientation(dots[0], dots[1], dots[2]):
+    if len(dots) == 3 and orientation(dots[0], dots[1], dots[2]) == 0:
         print("No")
         return
     
