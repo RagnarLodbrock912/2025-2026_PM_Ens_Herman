@@ -67,8 +67,11 @@ b2 += format(ord(s[6]), '08b')
 b2 += format(ord(s[7]), '08b')
 
 
+print(b1)
 b1 = encode(b1)
 b2 = encode(b2)
+
+print("".join(b1))
 
 b1[6] = "0" if b1[6] == "1" else "0"
 b1[16] = "0" if b1[16] == "1" else "0"
