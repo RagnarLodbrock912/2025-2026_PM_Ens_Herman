@@ -15,6 +15,8 @@ if len(lower_text) % 2 != 0:
 char_counts = Counter(lower_text)
 total_chars = len(lower_text)
 
+print(char_counts)
+
 for char, count in sorted(char_counts.items(), key=lambda x: (-x[1], x[0])):
     print (f' Колическтво одного символа {char}: {count}')
 
