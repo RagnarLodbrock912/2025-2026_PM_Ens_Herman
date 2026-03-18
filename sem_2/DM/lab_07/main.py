@@ -3,8 +3,11 @@ import heapq
 import random
 import math
 
-n = [700, 2000, 6000, 15000, 30000]
+n = [20, 700, 2000, 6000, 15000, 30000]
 INF = float("inf")
+
+def rand():
+    return random.randint(1, 10)
 
 def build_graph(n):
     g = [[INF] * n for _ in range(n)]
@@ -15,25 +18,30 @@ def build_graph(n):
     for i in range(6):
         for j in range(6):
             if i ==  j: continue
-            g[i][j] = 1
-            g[j][i] = 1
+            w = rand()
+            g[i][j] = w
+            g[j][i] = w
 
     for i in range(6, 10):
         for j in range(10, 15):
-            g[i][j] = 1
-            g[j][i] = 1
-
-    g[5][6] = 1
-    g[6][5] = 1
+            w = rand()
+            g[i][j] = w
+            g[j][i] = w
+    
+    w = rand()
+    g[5][6] = w
+    g[6][5] = w
 
     for i in range(15, n):
-        g[i - 1][i] = 1
-        g[i][i - 1] = 1
+        w = rand()
+        g[i - 1][i] = w
+        g[i][i - 1] = w
 
         for j in range(i):
             if random.random() < 0.005:
-                g[i][j] = 1
-                g[j][i] = 1
+                w = rand()
+                g[i][j] = w
+                g[j][i] = w
 
     return g
 
@@ -107,15 +115,18 @@ def count_edges(g):
                 edges += 1
     return edges
 
-g = build_graph(20)
+g = build_graph(n[0])
+for row in g: print(row)
+
+print("-" * 50)
 num_edges = count_edges(g)
 
-p1, s = floyd_warshall(g, 0, 19)
-p2, d, iterations = dijkstra(g, 0, 19)
+p1, s = floyd_warshall(g, 0, n[0] - 1)
+p2, d, iterations = dijkstra(g, 0, n[0] - 1)
 
 for row in s: print(row)
 print(p1)
 print("-" * 50)
 print(d)
 print(p2)
-print(iterations, (20 + num_edges)* math.log(20))
+print(iterations, (n[0] + num_edges)* math.log(n[0]))
